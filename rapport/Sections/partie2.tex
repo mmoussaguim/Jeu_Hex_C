@@ -1,0 +1,61 @@
+\section{Mise en oeuvre technique}
+
+
+\subsection{Les joueurs}
+\label{sec:joueurs}
+
+Les différents joueurs sont codés indépendamment et sont sauvegardés dans des bibliothèques dynamiques qui pourront être chargées dynamiquement par le serveur.
+Afin de définir l'inter-fonctionnalité entre les différents clients, une même interface est requise pour tous les joueurs.\\
+Tout joueur doit sauvegarder le graphe que lui passe le serveur et doit être capable de proposer et d'accepter ou non un coup en fonction de la situation dans laquelle il se trouve. C'est ce que font respectivement les fonctions \textbf{initialize\_graph}, \textbf{propose\_opening} et \textbf{accept\_opening}. Vient alors la fonction \textbf{initialize\_color} qui assigne à chaque joueur sa couleur et la fonction \textbf{play} qui permet au joueur de proposer son coup en fonction de sa stratégie.
+
+\subsection{Le serveur}
+
+Le serveur est le programme qui permet le déroulé du jeu, en envoyant les informations aux stratégies et en vérifiant l'avancement de la partie.
+
+\subsubsection{La boucle de jeu}
+
+La boucle de jeu est toute simple, dans un premier temps une copie du graphe représentant le plateau de jeu est envoyé à chacun des joueurs, ce ne sont que des copies afin d'éviter toute triche qui consisterait à modifier le plateau de jeu en changeant par exemple des cases déjà colorées.\\
+
+Le démarrage de la partie se fait selon la règle dit du gâteau, elle consiste à demander à un joueur de jouer un premier coup, puis de demander au second joueur si il veut prendre ce coup pour lui ou le laisser à l'autre joueur, le serveur attribue ainsi leur couleur à chaque joueur, le joueur ayant le premier coup est le joueur noir.\\
+
+Vient ensuite la boucle de jeu à proprement parler, cette dernière consiste en une boucle tant que vérifiant que le graphe n'est pas entièrement coloré. À chaque tour le serveur calcule le prochain joueur puis lui fait jouer son coup et enfin fait appel à la fonction \textbf{is\_winning} vérifie si la partie est terminée. Cette fonction renvoie un booléen indiquant si la partie est terminé ce qui de stopper la boucle à l'aide d'un \textbf{break}.\\
+
+\begin{algorithm}[H]
+
+G $\leftarrow$ graph\_\_initialize(M, T);\\
+\For{ tout joueur p }{
+    p->initialize\_\_graph(G)}
+move = joeur1->propose\_opening();\\   
+\eIf{joeur2->accept\_opening(move)}{
+    C'est le joeur2 qui joue le prochain coup donc\\
+    joueur1->initialize\_color(BLACK);\\
+    joueur2->initialize\_color(WHITE);}{
+    C'est le joeur1 qui joue encore une fois et donc\\
+    joueur1->initialize\_color(WHITE)\\
+    joueur2->initialize\_color(BLACK);}
+\While{G n'est pas rempli}{
+    p $\leftarrow$ le joueur suivant;\\
+    move = p->play(move);\\
+    \eIf{Il gagne avec le noeud \textbf{move}}
+    {\textbf{break}}{}}
+
+\caption{Principe algorithmique de la boucle de jeu}
+\end{algorithm}
+
+\subsubsection{La fonction \textbf{is\_winning}}
+Cette fonction est celle permettant au serveur de savoir si la partie est terminée, mais elle est également celle qui colore le graphe pour le serveur. Pour ce faire, elle prend en paramètre un pointeur vers une structure \textbf{struct game} qui réunie le plateau de jeu ainsi que les joueurs représentés par la structure \textbf{struct player} (voir section \ref{sec:com_joueurs}), le coup jouer représenté par la structure \textbf{struct move}, ainsi qu'un caractère indiquant la forme du plateau de jeu (voir section \ref{sec:plateau_de_jeu}) et la taille du graphe.
+
+Dans un premier temps, la fonction vérifie si le coup est possible et si oui colore le graphe en fonction.
+
+Vient alors la vérification pour savoir si le dernier joueur ayant jouer a gagné la partie. Cela se fait par un parcours en profondeur sur le sous-graphe de la couleur de ce joueur afin de repérer une éventuelle connexion entre les deux partie colorées d'origines du joueur. Pour ce faire, il y a deux fonctions qui calculent les indices d'un nœuds dans une partie et dans l'autre, pour cela elles prennent en paramètre la forme du graphe, sa taille ainsi que la couleur testée. Le premier nœud sert de départ pour le parcours en profondeur et si le deuxième nœud est rencontré lors de ce parcours alors les deux parties sont reliées et le joueur à gagner.
+
+\subsubsection{Communication avec les joueurs}
+\label{sec:com_joueurs}
+
+Comme vu dans la section \ref{sec:joueurs}, les joueurs sont codés dans des bibliothèques appelées dynamiquement. Cet appel est réalisé grâce à la bibliothèque \textbf{dlfcn} qui permet d'ouvrir dynamiquement une bibliothèque. Les stratégies sont donc données en paramètre lors du lancement du serveur.
+
+Une structure \textbf{struct player} réunie les pointeurs des fonctions fournies par la bibliothèque du joueur (partie \ref{joueurs}) ainsi que le pointeur vers cette bibliothèque pour pouvoir la fermer à la fin de la partie.
+
+\subsection{Implémentation des graphes}
+La structure \textbf{graph\_t} évoquée dans la partie \ref{sec:plateau_de_jeu}, nécessite plusieurs fonctions pour la manipuler, et parmi les fonctions principales on trouve \textbf{graph\_initialize} une fonction qui prend en paramètre la longueur du tablier souhaité, et la forme (hexagonal,carré ou triangulaire) et qui retourne un pointeur vers une structure \textbf{graph\_t} allouée et bien initialisée. La seconde fonction qui réside importante c'est la fonction qui permet au serveur de créer des copies pour les joueurs \textbf{graph\_copy}, ainsi qu'une liste de fonction qui ne laisse plus le besoin de faire appel à une fonction de la bibliothèque GSL en dehors du fichier \textit{graph\_function.c}.
+Le tablier est affiché par la fonction \textbf{graph\_print} qui prend le graphe en paramètre, et sa forme pour l'afficher correctement.
